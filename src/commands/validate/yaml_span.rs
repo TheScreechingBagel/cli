@@ -10,9 +10,11 @@ use yaml_rust2::{
 };
 
 #[cfg(not(test))]
-use log::trace;
+use log::{debug, trace};
 #[cfg(test)]
 use std::eprintln as trace;
+#[cfg(test)]
+use std::eprintln as debug;
 
 use super::location::Location;
 
@@ -42,6 +44,7 @@ impl YamlSpan {
     }
 
     pub fn get_span(&self, path: &Location) -> Result<SourceSpan> {
+        debug!("Searching {path}");
         let mut event_iter = self.event_markers.iter();
         let mut path_iter = path.into_iter();
 
@@ -131,7 +134,14 @@ where
                     if key != expected_key =>
                 {
                     trace!("Non-matching key '{key}'");
-                    continue;
+                    let (event, marker) = self.events.next().unwrap();
+
+                    match event {
+                        Event::Scalar(_, _, _, _) => continue,
+                        Event::MappingStart(_, _) => self.skip_mapping(marker.index()),
+                        Event::SequenceStart(_, _) => self.skip_sequence(marker.index()),
+                        _ => unreachable!("{event:?}"),
+                    };
                 }
                 (Event::Scalar(key, _, _, _), LocationSegment::Index(index)) => {
                     bail!("Encountered key {key} when looking for index {index}")
@@ -240,6 +250,7 @@ where
         let (event, marker) = self.events.next().unwrap();
         trace!("{event:?} {marker:?}");
         let key = self.path.next();
+        trace!("{key:?}");
 
         Ok(match (event, key) {
             (Event::Scalar(value, _, _, _), None) => (marker.index(), value.len()),

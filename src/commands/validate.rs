@@ -97,11 +97,21 @@ impl BlueBuildCommand for ValidateCommand {
 impl ValidateCommand {
     async fn setup_validators(&mut self) -> Result<(), Report> {
         let (rv, sv, mv, mslv) = tokio::try_join!(
-            SchemaValidator::builder().url(RECIPE_V1_SCHEMA_URL).build(),
-            SchemaValidator::builder().url(STAGE_V1_SCHEMA_URL).build(),
-            SchemaValidator::builder().url(MODULE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder()
+                .url(RECIPE_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
+                .build(),
+            SchemaValidator::builder()
+                .url(STAGE_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
+                .build(),
+            SchemaValidator::builder()
+                .url(MODULE_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
+                .build(),
             SchemaValidator::builder()
                 .url(MODULE_STAGE_LIST_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
                 .build(),
         )?;
         self.recipe_validator = Some(rv);
@@ -153,7 +163,7 @@ impl ValidateCommand {
                         .module_stage_list_validator
                         .as_ref()
                         .unwrap()
-                        .process_validation(path, file_str.clone(), self.all_errors)
+                        .process_validation(path, file_str.clone())
                     {
                         Err(e) => return vec![e],
                         Ok(e) => e,
@@ -200,7 +210,7 @@ impl ValidateCommand {
                 } else {
                     debug!("{path_display} is a single file file");
                     single_validator
-                        .process_validation(path, file_str, self.all_errors)
+                        .process_validation(path, file_str)
                         .map_or_else(|e| vec![e], |e| e.map_or_else(Vec::new, |e| vec![e]))
                 }
             }
@@ -221,7 +231,7 @@ impl ValidateCommand {
 
         let schema_validator = self.recipe_validator.as_ref().unwrap();
         let err = schema_validator
-            .process_validation(&self.recipe, recipe_str.clone(), self.all_errors)
+            .process_validation(&self.recipe, recipe_str.clone())
             .map_err(err_vec)?;
 
         if let Some(err) = err {
